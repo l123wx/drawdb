@@ -2,7 +2,8 @@ import LayoutContextProvider from "../context/LayoutContext";
 import TransformContextProvider from "../context/TransformContext";
 import TablesContextProvider from "../context/TablesContext";
 import UndoRedoContextProvider from "../context/UndoRedoContext";
-import SelectContextProvider from "../context/SelectContext";
+import CanvasElementContextProvider from "../context/CanvasElementContext";
+import SidePanelContextProvider from "../context/SidePanelContext";
 import AreasContextProvider from "../context/AreasContext";
 import NotesContextProvider from "../context/NotesContext";
 import TypesContextProvider from "../context/TypesContext";
@@ -15,21 +16,23 @@ export default function Editor() {
     <LayoutContextProvider>
       <TransformContextProvider>
         <UndoRedoContextProvider>
-          <SelectContextProvider>
-            <TasksContextProvider>
-              <AreasContextProvider>
-                <NotesContextProvider>
-                  <TypesContextProvider>
-                    <TablesContextProvider>
-                      <SaveStateContextProvider>
-                        <WorkSpace />
-                      </SaveStateContextProvider>
-                    </TablesContextProvider>
-                  </TypesContextProvider>
-                </NotesContextProvider>
-              </AreasContextProvider>
-            </TasksContextProvider>
-          </SelectContextProvider>
+          <CanvasElementContextProvider>
+            <SidePanelContextProvider>
+              <TasksContextProvider>
+                <AreasContextProvider>
+                  <NotesContextProvider>
+                    <TypesContextProvider>
+                      <TablesContextProvider>
+                        <SaveStateContextProvider>
+                          <WorkSpace />
+                        </SaveStateContextProvider>
+                      </TablesContextProvider>
+                    </TypesContextProvider>
+                  </NotesContextProvider>
+                </AreasContextProvider>
+              </TasksContextProvider>
+            </SidePanelContextProvider>
+          </CanvasElementContextProvider>
         </UndoRedoContextProvider>
       </TransformContextProvider>
     </LayoutContextProvider>

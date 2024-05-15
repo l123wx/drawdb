@@ -1,8 +1,7 @@
 import { createContext, useState } from "react";
-import useTransform from "../hooks/useTransform";
+import { nanoid } from 'nanoid';
+import { useTransform, useUndoRedo, useCanvasElement } from "../hooks";
 import { Action, ObjectType, defaultNoteTheme } from "../data/constants";
-import useUndoRedo from "../hooks/useUndoRedo";
-import useSelect from "../hooks/useSelect";
 
 export const NotesContext = createContext(null);
 
@@ -10,20 +9,23 @@ export default function NotesContextProvider({ children }) {
   const [notes, setNotes] = useState([]);
   const { transform } = useTransform();
   const { setUndoStack, setRedoStack } = useUndoRedo();
-  const { selectedElement, setSelectedElement } = useSelect();
+  const { setSelectedElement, isElementSelected } = useCanvasElement();
 
   const addNote = (data, addToHistory = true) => {
     if (data) {
       setNotes((prev) => {
+        data.id = nanoid()
+        data.key = Date.now()
+
         const temp = prev.slice();
-        temp.splice(data.id, 0, data);
-        return temp.map((t, i) => ({ ...t, id: i }));
+        temp.splice(data.index ?? temp.length, 0, data);
+        return temp;
       });
     } else {
       setNotes((prev) => [
         ...prev,
         {
-          id: prev.length,
+          id: nanoid(),
           x: -transform.pan.x,
           y: -transform.pan.y,
           title: `note_${prev.length}`,
@@ -62,13 +64,8 @@ export default function NotesContextProvider({ children }) {
     setNotes((prev) =>
       prev.filter((e) => e.id !== id).map((e, i) => ({ ...e, id: i }))
     );
-    if (id === selectedElement.id) {
-      setSelectedElement((prev) => ({
-        ...prev,
-        element: ObjectType.NONE,
-        id: -1,
-        open: false,
-      }));
+    if (isElementSelected(id)) {
+      setSelectedElement(null);
     }
   };
 

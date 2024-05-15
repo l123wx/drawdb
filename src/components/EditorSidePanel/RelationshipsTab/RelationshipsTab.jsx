@@ -1,34 +1,26 @@
+import { useState } from 'react'
 import { Collapse } from "@douyinfe/semi-ui";
-import { useSelect, useTables } from "../../../hooks";
+import { useCanvasElement, useTables } from "../../../hooks";
 import Empty from "../Empty";
 import SearchBar from "./SearchBar";
 import RelationshipInfo from "./RelationshipInfo";
-import { ObjectType } from "../../../data/constants";
 
 export default function RelationshipsTab() {
   const { relationships } = useTables();
-  const { selectedElement, setSelectedElement } = useSelect();
+  const { setSelectedElement, setSelectedElementById } = useCanvasElement();
+  const [collapseActiveKeys, setCollapseActiveKeys] = useState([])
 
   return (
     <>
       <SearchBar />
       <Collapse
-        activeKey={
-          selectedElement.open &&
-          selectedElement.element === ObjectType.RELATIONSHIP
-            ? `${selectedElement.id}`
-            : ""
-        }
+        activeKey={collapseActiveKeys}
         keepDOM
         lazyRender
-        onChange={(k) =>
-          setSelectedElement((prev) => ({
-            ...prev,
-            open: true,
-            id: parseInt(k),
-            element: ObjectType.RELATIONSHIP,
-          }))
-        }
+        onChange={(activeKeys) => {
+          setCollapseActiveKeys(activeKeys)
+          activeKeys[0] ? setSelectedElementById(activeKeys[0]) : setSelectedElement(null)
+        }}
         accordion
       >
         {relationships.length <= 0 ? (

@@ -1,14 +1,15 @@
+import { useState } from 'react'
 import { Collapse, Row, Col, Button, Popover } from "@douyinfe/semi-ui";
 import { IconPlus, IconInfoCircle } from "@douyinfe/semi-icons";
-import { useSelect, useTypes } from "../../../hooks";
-import { ObjectType } from "../../../data/constants";
+import { useCanvasElement, useTypes } from "../../../hooks";
 import Searchbar from "./SearchBar";
 import Empty from "../Empty";
 import TypeInfo from "./TypeInfo";
 
 export default function TypesTab() {
   const { types, addType } = useTypes();
-  const { selectedElement, setSelectedElement } = useSelect();
+  const { setSelectedElement, setSelectedElementById } = useCanvasElement();
+  const [collapseActiveKeys, setCollapseActiveKeys] = useState([])
 
   return (
     <>
@@ -55,26 +56,18 @@ export default function TypesTab() {
         <Empty title="No types" text="Make your own custom data types" />
       ) : (
         <Collapse
-          activeKey={
-            selectedElement.open && selectedElement.element === ObjectType.TYPE
-              ? `${selectedElement.id}`
-              : ""
-          }
+          activeKey={collapseActiveKeys}
           keepDOM
           lazyRender
-          onChange={(id) =>
-            setSelectedElement((prev) => ({
-              ...prev,
-              open: true,
-              id: parseInt(id),
-              element: ObjectType.TYPE,
-            }))
-          }
-          accordion
-        >
-          {types.map((t, i) => (
-            <TypeInfo data={t} key={i} index={i} />
-          ))}
+          onChange={(activeKeys) => {
+            setCollapseActiveKeys(activeKeys)
+            activeKeys[0] ? setSelectedElementById(activeKeys[0]) : setSelectedElement(null)
+          }}
+            accordion
+          >
+            {types.map((t, i) => (
+              <TypeInfo data={t} key={i} index={i} />
+            ))}
         </Collapse>
       )}
     </>

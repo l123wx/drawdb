@@ -1,11 +1,4 @@
-import { useState } from "react";
-import {
-  Tab,
-  ObjectType,
-  tableFieldHeight,
-  tableHeaderHeight,
-  tableColorStripHeight,
-} from "../../data/constants";
+import { useEffect, useMemo, useState } from "react";
 import {
   IconEdit,
   IconMore,
@@ -14,11 +7,19 @@ import {
   IconKeyStroked,
 } from "@douyinfe/semi-icons";
 import { Popover, Tag, Button, Toast, SideSheet } from "@douyinfe/semi-ui";
-import { useLayout, useSettings, useTables, useSelect } from "../../hooks";
+import {
+  tableFieldHeight,
+  tableHeaderHeight,
+  tableColorStripHeight,
+  Tab,
+} from "../../data/constants";
+import { useLayout, useSettings, useTables, useCanvasElement, useSidePanel } from "../../hooks";
+import { TableCanvasElement } from '../../utils/CanvasElement'
 import TableInfo from "../EditorSidePanel/TablesTab/TableInfo";
 
 export default function Table(props) {
   const [hoveredField, setHoveredField] = useState(-1);
+  const [isSideSheetShow, setIsSideSheetShow] = useState(false);
   const {
     tableData,
     onMouseDown,
@@ -27,34 +28,80 @@ export default function Table(props) {
     setLinkingLine,
   } = props;
   const { layout } = useLayout();
-  const { deleteTable, deleteField } = useTables();
+  const { addTable, deleteTable, deleteField, updateTable } = useTables();
+  const { setCurrentTab } = useSidePanel()
   const { settings } = useSettings();
-  const { selectedElement, setSelectedElement } = useSelect();
+  const { setSelectedElement, isElementSelected, addElement, removeElementById } = useCanvasElement();
 
   const height =
     tableData.fields.length * tableFieldHeight + tableHeaderHeight + 7;
-  const openEditor = () => {
-    if (!layout.sidebar) {
-      setSelectedElement((prev) => ({
-        ...prev,
-        element: ObjectType.TABLE,
-        id: tableData.id,
-        open: true,
-      }));
-    } else {
-      setSelectedElement((prev) => ({
-        ...prev,
-        currentTab: Tab.TABLES,
-        element: ObjectType.TABLE,
-        id: tableData.id,
-        open: true,
-      }));
-      if (selectedElement.currentTab !== Tab.TABLES) return;
-      document
-        .getElementById(`scroll_table_${tableData.id}`)
-        .scrollIntoView({ behavior: "smooth" });
+
+  const isTableSelected = isElementSelected(tableData.id)
+
+  const tableCanvasElement = useMemo(() => new TableCanvasElement({
+    id: tableData.id,
+    data: tableData,
+    openEditor() {
+      console.log('table openEditor', tableData)
+      if (layout.sidebar) {
+        setCurrentTab(Tab.TABLES)
+        return
+      }
+
+      setIsSideSheetShow(true)
+    },
+    comeIntoView() {
+      console.log('table comeIntoView')
+    },
+    update(newData) {
+      updateTable(tableData.id, newData)
+    },
+    delete() {
+      deleteTable(tableData.id)
+    },
+    duplicate() {
+      addTable({
+        ...tableData,
+        x: tableData.x + 20,
+        y: tableData.y + 20
+      });
     }
-  };
+  }), [tableData, addTable, updateTable, deleteTable, layout.sidebar, setCurrentTab])
+
+  useEffect(() => {
+    addElement(tableCanvasElement)
+    return () => {
+      removeElementById(tableCanvasElement.id)
+    }
+  }, [])
+  
+  const handleTableSelect = () => {
+    setSelectedElement(tableCanvasElement)
+    tableCanvasElement.openEditor()
+    tableCanvasElement.comeIntoView()
+  }
+  
+    // const openEditor = () => {
+    // if (!layout.sidebar) {
+    //   setSelectedElement((prev) => ({
+    //     ...prev,
+    //     element: ObjectType.TABLE,
+    //     id: tableData.id,
+    //     open: true,
+    //   }));
+    //   setSelectedElement(new TableCanvasElement({
+    //     id: tableData.id
+    //   }))
+    // } else {
+    //   setSelectedElement((prev) => ({
+    //     ...prev,
+    //     currentTab: Tab.TABLES,
+    //     element: ObjectType.TABLE,
+    //     id: tableData.id,
+    //     open: true,
+    //   }));
+    // }
+  // };
 
   return (
     <>
@@ -65,30 +112,30 @@ export default function Table(props) {
         width={settings.tableWidth}
         height={height}
         className="group drop-shadow-lg rounded-md cursor-move"
-        onMouseDown={onMouseDown}
+        onMouseDown={(e) => {
+          onMouseDown(e, tableCanvasElement)
+          setSelectedElement(tableCanvasElement)
+        }}
       >
         <div
-          onDoubleClick={openEditor}
+          onDoubleClick={handleTableSelect}
           className={`border-2 hover:border-dashed hover:border-blue-500
-               select-none rounded-lg w-full ${
-                 settings.mode === "light"
-                   ? "bg-zinc-100 text-zinc-800"
-                   : "bg-zinc-800 text-zinc-200"
-               } ${
-                 selectedElement.id === tableData.id &&
-                 selectedElement.element === ObjectType.TABLE
-                   ? "border-solid border-blue-500"
-                   : "border-zinc-500"
-               }`}
+               select-none rounded-lg w-full ${settings.mode === "light"
+              ? "bg-zinc-100 text-zinc-800"
+              : "bg-zinc-800 text-zinc-200"
+            } ${
+              isTableSelected
+              ? "border-solid border-blue-500"
+              : "border-zinc-500"
+            }`}
         >
           <div
             className="h-[10px] w-full rounded-t-md"
             style={{ backgroundColor: tableData.color }}
           />
           <div
-            className={`overflow-hidden font-bold h-[40px] flex justify-between items-center border-b border-gray-400 ${
-              settings.mode === "light" ? "bg-zinc-200" : "bg-zinc-900"
-            }`}
+            className={`overflow-hidden font-bold h-[40px] flex justify-between items-center border-b border-gray-400 ${settings.mode === "light" ? "bg-zinc-200" : "bg-zinc-900"
+              }`}
           >
             <div className=" px-3 overflow-hidden text-ellipsis whitespace-nowrap">
               {tableData.name}
@@ -103,7 +150,7 @@ export default function Table(props) {
                     backgroundColor: "#2f68adb3",
                     marginRight: "6px",
                   }}
-                  onClick={openEditor}
+                  onClick={handleTableSelect}
                 />
                 <Popover
                   key={tableData.key}
@@ -119,9 +166,8 @@ export default function Table(props) {
                       </div>
                       <div>
                         <strong
-                          className={`${
-                            tableData.indices.length === 0 ? "" : "block"
-                          }`}
+                          className={`${tableData.indices.length === 0 ? "" : "block"
+                            }`}
                         >
                           Indices :
                         </strong>{" "}
@@ -132,11 +178,10 @@ export default function Table(props) {
                             {tableData.indices.map((index, k) => (
                               <div
                                 key={k}
-                                className={`flex items-center my-1 px-2 py-1 rounded ${
-                                  settings.mode === "light"
+                                className={`flex items-center my-1 px-2 py-1 rounded ${settings.mode === "light"
                                     ? "bg-gray-100"
                                     : "bg-zinc-800"
-                                }`}
+                                  }`}
                               >
                                 <i className="fa-solid fa-thumbtack me-2 mt-1 text-slate-500"></i>
                                 <div>
@@ -244,18 +289,8 @@ export default function Table(props) {
       <SideSheet
         title="Edit table"
         size="small"
-        visible={
-          selectedElement.element === ObjectType.TABLE &&
-          selectedElement.id === tableData.id &&
-          selectedElement.open &&
-          !layout.sidebar
-        }
-        onCancel={() =>
-          setSelectedElement((prev) => ({
-            ...prev,
-            open: !prev.open,
-          }))
-        }
+        visible={isSideSheetShow}
+        onCancel={() => setIsSideSheetShow(false)}
         style={{ paddingBottom: "16px" }}
       >
         <div className="sidesheet-theme">
@@ -268,11 +303,10 @@ export default function Table(props) {
   function field(fieldData, index) {
     return (
       <div
-        className={`${
-          index === tableData.fields.length - 1
+        className={`${index === tableData.fields.length - 1
             ? ""
             : "border-b border-gray-400"
-        } group h-[36px] px-2 py-1 flex justify-between items-center gap-1 w-full overflow-hidden`}
+          } group h-[36px] px-2 py-1 flex justify-between items-center gap-1 w-full overflow-hidden`}
         onMouseEnter={() => {
           setHoveredField(index);
           setHoveredTable({
@@ -285,9 +319,8 @@ export default function Table(props) {
         }}
       >
         <div
-          className={`${
-            hoveredField === index ? "text-zinc-400" : ""
-          } flex items-center gap-2 overflow-hidden`}
+          className={`${hoveredField === index ? "text-zinc-400" : ""
+            } flex items-center gap-2 overflow-hidden`}
         >
           <button
             className="flex-shrink-0 w-[10px] h-[10px] bg-[#2f68adcc] rounded-full"

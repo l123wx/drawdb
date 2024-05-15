@@ -16,6 +16,7 @@ export default function TableField({ data, tid, index }) {
     <Row gutter={6} className="hover-1 my-2">
       <Col span={7}>
         <Input
+          id={`scroll_table_${tid}_field_${data.id}`}
           value={data.name}
           validateStatus={data.name === "" ? "error" : "default"}
           placeholder="Name"

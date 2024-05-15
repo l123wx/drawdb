@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button, Popover, Input, Toast } from "@douyinfe/semi-ui";
 import { IconEdit, IconDeleteStroked } from "@douyinfe/semi-icons";
 import {
-  Tab,
   Action,
   ObjectType,
   defaultBlue,
@@ -12,20 +11,62 @@ import {
   useLayout,
   useSettings,
   useUndoRedo,
-  useSelect,
+  useCanvasElement,
   useAreas,
   useSaveState,
   useTransform,
 } from "../../hooks";
 import ColorPalette from "../ColorPalette";
+import { AreaCanvasElement } from "../../utils/CanvasElement";
 
 export default function Area({ data, onMouseDown, setResize, setInitCoords }) {
   const [hovered, setHovered] = useState(false);
+  const [isPopoverShow, setIsPopoverShow] = useState(false);
   const { layout } = useLayout();
   const { settings } = useSettings();
   const { transform } = useTransform();
   const { setSaveState } = useSaveState();
-  const { selectedElement, setSelectedElement } = useSelect();
+  const { setSelectedElement, isElementSelected, addElement, removeElementById } = useCanvasElement();
+  const { updateArea, deleteArea, addArea } = useAreas();
+
+  const areaCanvasElement = useMemo(() => new AreaCanvasElement({
+    id: data.id,
+    data,
+    openEditor() {
+      console.log('note openEditor')
+      if (layout.sidebar) {
+        return
+      }
+
+      setIsPopoverShow(true)
+    },
+    comeIntoView() {
+      console.log('note comeIntoView')
+    },
+    update(newData) {
+      updateArea(data.id, newData)
+    },
+    delete() {
+      deleteArea(data.id)
+    },
+    duplicate() {
+      addArea({
+        ...data,
+        x: data.x + 20,
+        y: data.y + 20
+      });
+    }
+  }), [data, layout.sidebar, addArea, updateArea, deleteArea])
+
+  useEffect(() => {
+    addElement(areaCanvasElement)
+
+    return () => {
+      removeElementById(areaCanvasElement.id)
+    }
+  }, [])
+
+  const areaIsSelected = isElementSelected(data.id)
 
   const handleResize = (e, dir) => {
     setResize({ id: data.id, dir: dir });
@@ -40,47 +81,31 @@ export default function Area({ data, onMouseDown, setResize, setInitCoords }) {
   };
 
   const edit = () => {
-    if (layout.sidebar) {
-      setSelectedElement((prev) => ({
-        ...prev,
-        element: ObjectType.AREA,
-        id: data.id,
-        currentTab: Tab.AREAS,
-        open: true,
-      }));
-      if (selectedElement.currentTab !== Tab.AREAS) return;
-      document
-        .getElementById(`scroll_area_${data.id}`)
-        .scrollIntoView({ behavior: "smooth" });
-    } else {
-      setSelectedElement((prev) => ({
-        ...prev,
-        element: ObjectType.AREA,
-        id: data.id,
-        open: true,
-      }));
-    }
-  };
+    setSelectedElement(areaCanvasElement)
+    areaCanvasElement.openEditor()
+    areaCanvasElement.comeIntoView()
 
-  const onClickOutSide = () => {
-    if (selectedElement.editFromToolbar) {
-      setSelectedElement((prev) => ({
-        ...prev,
-        editFromToolbar: false,
-      }));
-      return;
-    }
-    setSelectedElement((prev) => ({
-      ...prev,
-      open: false,
-    }));
-    setSaveState(State.SAVING);
+    // if (layout.sidebar) {
+    //   setSelectedElement((prev) => ({
+    //     ...prev,
+    //     element: ObjectType.AREA,
+    //     id: data.id,
+    //     currentTab: Tab.AREAS,
+    //     open: true,
+    //   }));
+    //   if (selectedElement.currentTab !== Tab.AREAS) return;
+    //   document
+    //     .getElementById(`scroll_area_${data.id}`)
+    //     .scrollIntoView({ behavior: "smooth" });
+    // } else {
+    //   setSelectedElement((prev) => ({
+    //     ...prev,
+    //     element: ObjectType.AREA,
+    //     id: data.id,
+    //     open: true,
+    //   }));
+    // }
   };
-
-  const areaIsSelected = () =>
-    selectedElement.element === ObjectType.AREA &&
-    selectedElement.id === data.id &&
-    selectedElement.open;
 
   return (
     <g
@@ -93,14 +118,16 @@ export default function Area({ data, onMouseDown, setResize, setInitCoords }) {
         y={data.y}
         width={data.width > 0 ? data.width : 0}
         height={data.height > 0 ? data.height : 0}
-        onMouseDown={onMouseDown}
+        onMouseDown={(e) => {
+          onMouseDown(e, areaCanvasElement)
+          setSelectedElement(areaCanvasElement)
+        }}
       >
         <div
           className={`border-2 ${
             hovered
               ? "border-dashed border-blue-500"
-              : selectedElement.element === ObjectType.AREA &&
-                  selectedElement.id === data.id
+              : areaIsSelected
                 ? "border-blue-500"
                 : "border-slate-400"
           } w-full h-full cursor-move rounded`}
@@ -113,10 +140,12 @@ export default function Area({ data, onMouseDown, setResize, setInitCoords }) {
               <div className="text-color select-none overflow-hidden text-ellipsis">
                 {data.name}
               </div>
-              {(hovered || (areaIsSelected() && !layout.sidebar)) && (
                 <Popover
-                  visible={areaIsSelected() && !layout.sidebar}
-                  onClickOutSide={onClickOutSide}
+                  visible={isPopoverShow}
+                  onClickOutSide={() => {
+                    setSelectedElement(false)
+                    setSaveState(State.SAVING);
+                  }}
                   stopPropagation
                   content={<EditPopoverContent data={data} />}
                   trigger="custom"
@@ -133,7 +162,6 @@ export default function Area({ data, onMouseDown, setResize, setInitCoords }) {
                     onClick={edit}
                   />
                 </Popover>
-              )}
             </div>
           </div>
         </div>

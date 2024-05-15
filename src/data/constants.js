@@ -83,6 +83,7 @@ export const ObjectType = {
   NOTE: 3,
   RELATIONSHIP: 4,
   TYPE: 5,
+  FIELD: 6
 };
 
 export const Action = {

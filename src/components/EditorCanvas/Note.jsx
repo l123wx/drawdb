@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Action,
   ObjectType,
-  Tab,
   State,
   noteThemes,
 } from "../../data/constants";
@@ -15,10 +14,11 @@ import {
 import {
   useLayout,
   useUndoRedo,
-  useSelect,
+  useCanvasElement,
   useNotes,
   useSaveState,
 } from "../../hooks";
+import { NoteCanvasElement } from '../../utils/CanvasElement'
 
 export default function Note({ data, onMouseDown }) {
   const w = 180;
@@ -26,11 +26,50 @@ export default function Note({ data, onMouseDown }) {
   const fold = 24;
   const [editField, setEditField] = useState({});
   const [hovered, setHovered] = useState(false);
+  const [isPopoverShow, setIsPopoverShow] = useState(false);
   const { layout } = useLayout();
   const { setSaveState } = useSaveState();
-  const { updateNote, deleteNote } = useNotes();
+  const { addNote, updateNote, deleteNote } = useNotes();
   const { setUndoStack, setRedoStack } = useUndoRedo();
-  const { selectedElement, setSelectedElement } = useSelect();
+  const { selectedElement, setSelectedElement, isElementSelected, addElement, removeElementById } = useCanvasElement();
+
+  const isNoteSelected = isElementSelected(data.id)
+
+  const noteCanvasElement = useMemo(() => new NoteCanvasElement({
+    id: data.id,
+    data,
+    openEditor() {
+      console.log('note openEditor')
+      if (layout.sidebar) {
+        return
+      }
+
+      setIsPopoverShow(true)
+    },
+    comeIntoView() {
+      console.log('note comeIntoView')
+    },
+    update(newData) {
+      updateNote(data.id, newData)
+    },
+    delete() {
+      deleteNote(data.id)
+    },
+    duplicate() {
+      addNote({
+        ...data,
+        x: data.x + 20,
+        y: data.y + 20
+      });
+    }
+  }), [data, layout.sidebar, addNote, deleteNote, updateNote])
+
+  useEffect(() => {
+    addElement(noteCanvasElement)
+    return () => {
+      removeElementById(noteCanvasElement.id)
+    }
+  }, [])
 
   const handleChange = (e) => {
     const textarea = document.getElementById(`note_${data.id}`);
@@ -61,19 +100,23 @@ export default function Note({ data, onMouseDown }) {
   };
 
   const edit = () => {
-    setSelectedElement((prev) => ({
-      ...prev,
-      ...(layout.sidebar && { currentTab: Tab.NOTES }),
-      ...(!layout.sidebar && { element: ObjectType.NOTE }),
-      id: data.id,
-      open: true,
-    }));
+    setSelectedElement(noteCanvasElement)
+    selectedElement.showEditor()
+    selectedElement.comeIntoView()
 
-    if (layout.sidebar && selectedElement.currentTab === Tab.NOTES) {
-      document
-        .getElementById(`scroll_note_${data.id}`)
-        .scrollIntoView({ behavior: "smooth" });
-    }
+    // setSelectedElement((prev) => ({
+    //   ...prev,
+    //   ...(layout.sidebar && { currentTab: Tab.NOTES }),
+    //   ...(!layout.sidebar && { element: ObjectType.NOTE }),
+    //   id: data.id,
+    //   open: true,
+    // }));
+
+    // if (layout.sidebar && selectedElement.currentTab === Tab.NOTES) {
+    //   document
+    //     .getElementById(`scroll_note_${data.id}`)
+    //     .scrollIntoView({ behavior: "smooth" });
+    // }
   };
 
   return (
@@ -95,8 +138,7 @@ export default function Note({ data, onMouseDown }) {
         stroke={
           hovered
             ? "rgb(59 130 246)"
-            : selectedElement.element === ObjectType.NOTE &&
-                selectedElement.id === data.id
+            : isNoteSelected
               ? "rgb(59 130 246)"
               : "rgb(168 162 158)"
         }
@@ -114,8 +156,7 @@ export default function Note({ data, onMouseDown }) {
         stroke={
           hovered
             ? "rgb(59 130 246)"
-            : selectedElement.element === ObjectType.NOTE &&
-                selectedElement.id === data.id
+            : isNoteSelected
               ? "rgb(59 130 246)"
               : "rgb(168 162 158)"
         }
@@ -128,7 +169,10 @@ export default function Note({ data, onMouseDown }) {
         y={data.y}
         width={w}
         height={data.height}
-        onMouseDown={onMouseDown}
+        onMouseDown={(e) => {
+          onMouseDown(e, noteCanvasElement)
+          setSelectedElement(noteCanvasElement)
+        }}
       >
         <div className="text-gray-900 select-none w-full h-full cursor-move px-3 py-2">
           <div className="flex justify-between gap-1 w-full">
@@ -139,30 +183,14 @@ export default function Note({ data, onMouseDown }) {
               {data.title}
             </label>
             {(hovered ||
-              (selectedElement.element === ObjectType.NOTE &&
-                selectedElement.id === data.id &&
+              (isNoteSelected &&
                 selectedElement.open &&
                 !layout.sidebar)) && (
               <div>
                 <Popover
-                  visible={
-                    selectedElement.element === ObjectType.NOTE &&
-                    selectedElement.id === data.id &&
-                    selectedElement.open &&
-                    !layout.sidebar
-                  }
+                  visible={isPopoverShow}
                   onClickOutSide={() => {
-                    if (selectedElement.editFromToolbar) {
-                      setSelectedElement((prev) => ({
-                        ...prev,
-                        editFromToolbar: false,
-                      }));
-                      return;
-                    }
-                    setSelectedElement((prev) => ({
-                      ...prev,
-                      open: false,
-                    }));
+                    setIsPopoverShow(false)
                     setSaveState(State.SAVING);
                   }}
                   stopPropagation

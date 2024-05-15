@@ -15,27 +15,24 @@ import {
   useTransform,
   useTables,
   useUndoRedo,
-  useSelect,
+  useCanvasElement,
   useAreas,
   useNotes,
-  useLayout,
 } from "../../hooks";
 
 export default function Canvas() {
-  const { tables, updateTable, relationships, addRelationship } = useTables();
+  const { tables, relationships, addRelationship } = useTables();
   const { areas, updateArea } = useAreas();
-  const { notes, updateNote } = useNotes();
-  const { layout } = useLayout();
+  const { notes } = useNotes();
   const { settings } = useSettings();
   const { setUndoStack, setRedoStack } = useUndoRedo();
   const { transform, setTransform } = useTransform();
-  const { selectedElement, setSelectedElement } = useSelect();
-  const [dragging, setDragging] = useState({
-    element: ObjectType.NONE,
-    id: -1,
+  const { setSelectedElement } = useCanvasElement();
+  const [draggingElement, setDraggingElement] = useState(null);
+  const [draggingInfo, setDraggingInfo] = useState({
     prevX: 0,
     prevY: 0,
-  });
+  })
   const [linking, setLinking] = useState(false);
   const [linkingLine, setLinkingLine] = useState({
     startTableId: -1,
@@ -72,51 +69,21 @@ export default function Canvas() {
 
   const canvas = useRef(null);
 
-  const handleMouseDownOnElement = (e, id, type) => {
+  const handleMouseDownOnElement = (e, canvasElement) => {
+    e.stopPropagation()
+
     const { clientX, clientY } = e;
-    if (type === ObjectType.TABLE) {
-      const table = tables.find((t) => t.id === id);
-      setOffset({
-        x: clientX / transform.zoom - table.x,
-        y: clientY / transform.zoom - table.y,
-      });
-      setDragging({
-        element: type,
-        id: id,
-        prevX: table.x,
-        prevY: table.y,
-      });
-    } else if (type === ObjectType.AREA) {
-      const area = areas.find((t) => t.id === id);
-      setOffset({
-        x: clientX / transform.zoom - area.x,
-        y: clientY / transform.zoom - area.y,
-      });
-      setDragging({
-        element: type,
-        id: id,
-        prevX: area.x,
-        prevY: area.y,
-      });
-    } else if (type === ObjectType.NOTE) {
-      const note = notes.find((t) => t.id === id);
-      setOffset({
-        x: clientX / transform.zoom - note.x,
-        y: clientY / transform.zoom - note.y,
-      });
-      setDragging({
-        element: type,
-        id: id,
-        prevX: note.x,
-        prevY: note.y,
-      });
-    }
-    setSelectedElement((prev) => ({
-      ...prev,
-      element: type,
-      id: id,
-      open: false,
-    }));
+    const { data } = canvasElement
+    
+    setDraggingElement(canvasElement);
+    setOffset({
+      x: clientX / transform.zoom - data.x,
+      y: clientY / transform.zoom - data.y,
+    });
+    setDraggingInfo({
+      prevX: data.x,
+      prevY: data.y
+    })
   };
 
   const handleMouseMove = (e) => {
@@ -127,37 +94,19 @@ export default function Canvas() {
         endX: (e.clientX - rect.left - transform.pan?.x) / transform.zoom,
         endY: (e.clientY - rect.top - transform.pan?.y) / transform.zoom,
       });
-    } else if (
-      panning.isPanning &&
-      dragging.element === ObjectType.NONE &&
-      areaResize.id === -1
-    ) {
+    } else if (panning.isPanning) {
       if (!settings.panning) {
         return;
       }
       const dx = e.clientX - panning.dx;
       const dy = e.clientY - panning.dy;
-      setTransform((prev) => ({
-        ...prev,
-        pan: { x: prev.pan?.x + dx, y: prev.pan?.y + dy },
-      }));
+      setTransform((prev) => {
+        return {
+          ...prev,
+          pan: { x: (prev.pan?.x || 0) + dx, y: (prev.pan?.y || 0) + dy },
+        }
+      });
       setPanning((prev) => ({ ...prev, dx: e.clientX, dy: e.clientY }));
-    } else if (dragging.element === ObjectType.TABLE && dragging.id >= 0) {
-      const dx = e.clientX / transform.zoom - offset.x;
-      const dy = e.clientY / transform.zoom - offset.y;
-      updateTable(dragging.id, { x: dx, y: dy });
-    } else if (
-      dragging.element === ObjectType.AREA &&
-      dragging.id >= 0 &&
-      areaResize.id === -1
-    ) {
-      const dx = e.clientX / transform.zoom - offset.x;
-      const dy = e.clientY / transform.zoom - offset.y;
-      updateArea(dragging.id, { x: dx, y: dy });
-    } else if (dragging.element === ObjectType.NOTE && dragging.id >= 0) {
-      const dx = e.clientX / transform.zoom - offset.x;
-      const dy = e.clientY / transform.zoom - offset.y;
-      updateNote(dragging.id, { x: dx, y: dy });
     } else if (areaResize.id !== -1) {
       if (areaResize.dir === "none") return;
       let newDims = { ...initCoords };
@@ -185,17 +134,16 @@ export default function Canvas() {
       }
 
       updateArea(areaResize.id, { ...newDims });
+    } else if (draggingElement) {
+      const dx = e.clientX / transform.zoom - offset.x;
+      const dy = e.clientY / transform.zoom - offset.y;
+
+      draggingElement.update({ x: dx, y: dy })
     }
   };
 
   const handleMouseDown = (e) => {
-    // don't pan if the sidesheet for editing a table is open
-    if (
-      selectedElement.element === ObjectType.TABLE &&
-      selectedElement.open &&
-      !layout.sidebar
-    )
-      return;
+    if (draggingElement) return
 
     setPanning({
       isPanning: true,
@@ -206,26 +154,13 @@ export default function Canvas() {
     setCursor("grabbing");
   };
 
-  const coordsDidUpdate = (element) => {
-    switch (element) {
-      case ObjectType.TABLE:
-        return !(
-          dragging.prevX === tables[dragging.id].x &&
-          dragging.prevY === tables[dragging.id].y
-        );
-      case ObjectType.AREA:
-        return !(
-          dragging.prevX === areas[dragging.id].x &&
-          dragging.prevY === areas[dragging.id].y
-        );
-      case ObjectType.NOTE:
-        return !(
-          dragging.prevX === notes[dragging.id].x &&
-          dragging.prevY === notes[dragging.id].y
-        );
-      default:
-        return false;
-    }
+  const coordsDidUpdate = () => {
+    if (!draggingElement) return false
+
+    return !(
+      draggingInfo.prevX === draggingElement.data.x &&
+      draggingInfo.prevY === draggingElement.data.y
+    );
   };
 
   const didResize = (id) => {
@@ -240,50 +175,24 @@ export default function Canvas() {
   const didPan = () =>
     !(transform.pan?.x === panning.x && transform.pan?.y === panning.y);
 
-  const getMovedElementDetails = () => {
-    switch (dragging.element) {
-      case ObjectType.TABLE:
-        return {
-          name: tables[dragging.id].name,
-          x: Math.round(tables[dragging.id].x),
-          y: Math.round(tables[dragging.id].y),
-        };
-      case ObjectType.AREA:
-        return {
-          name: areas[dragging.id].name,
-          x: Math.round(areas[dragging.id].x),
-          y: Math.round(areas[dragging.id].y),
-        };
-      case ObjectType.NOTE:
-        return {
-          name: notes[dragging.id].title,
-          x: Math.round(notes[dragging.id].x),
-          y: Math.round(notes[dragging.id].y),
-        };
-      default:
-        return false;
-    }
-  };
-
   const handleMouseUp = () => {
-    if (coordsDidUpdate(dragging.element)) {
-      const info = getMovedElementDetails();
+    if (coordsDidUpdate()) {
       setUndoStack((prev) => [
         ...prev,
         {
           action: Action.MOVE,
-          element: dragging.element,
-          x: dragging.prevX,
-          y: dragging.prevY,
-          toX: info.x,
-          toY: info.y,
-          id: dragging.id,
-          message: `Move ${info.name} to (${info.x}, ${info.y})`,
+          element: draggingElement.type,
+          x: draggingInfo.prevX,
+          y: draggingInfo.prevY,
+          toX: draggingElement.data.x,
+          toY: draggingElement.data.y,
+          id: draggingElement.id,
+          message: `Move ${draggingElement.data.name} to (${draggingElement.data.x}, ${draggingElement.data.y})`,
         },
       ]);
       setRedoStack([]);
     }
-    setDragging({ element: ObjectType.NONE, id: -1, prevX: 0, prevY: 0 });
+    setDraggingElement(null);
     if (panning.isPanning && didPan()) {
       setUndoStack((prev) => [
         ...prev,
@@ -295,12 +204,7 @@ export default function Canvas() {
         },
       ]);
       setRedoStack([]);
-      setSelectedElement((prev) => ({
-        ...prev,
-        element: ObjectType.NONE,
-        id: -1,
-        open: false,
-      }));
+      setSelectedElement(null);
     }
     setPanning({ isPanning: false, x: 0, y: 0 });
     setCursor("default");
@@ -339,7 +243,7 @@ export default function Canvas() {
 
   const handleGripField = () => {
     setPanning(false);
-    setDragging({ element: ObjectType.NONE, id: -1, prevX: 0, prevY: 0 });
+    setDraggingElement(null);
     setLinking(true);
   };
 
@@ -448,13 +352,11 @@ export default function Canvas() {
             }}
             id="diagram"
           >
-            {areas.map((a) => (
+            {areas.map((area) => (
               <Area
-                key={a.id}
-                data={a}
-                onMouseDown={(e) =>
-                  handleMouseDownOnElement(e, a.id, ObjectType.AREA)
-                }
+                key={area.id}
+                data={area}
+                onMouseDown={handleMouseDownOnElement}
                 setResize={setAreaResize}
                 setInitCoords={setInitCoords}
               />
@@ -469,9 +371,7 @@ export default function Canvas() {
                 setHoveredTable={setHoveredTable}
                 handleGripField={handleGripField}
                 setLinkingLine={setLinkingLine}
-                onMouseDown={(e) =>
-                  handleMouseDownOnElement(e, table.id, ObjectType.TABLE)
-                }
+                onMouseDown={handleMouseDownOnElement}
               />
             ))}
             {linking && (
@@ -481,13 +381,11 @@ export default function Canvas() {
                 strokeDasharray="8,8"
               />
             )}
-            {notes.map((n) => (
+            {notes.map((note) => (
               <Note
-                key={n.id}
-                data={n}
-                onMouseDown={(e) =>
-                  handleMouseDownOnElement(e, n.id, ObjectType.NOTE)
-                }
+                key={note.id}
+                data={note}
+                onMouseDown={handleMouseDownOnElement}
               />
             ))}
           </g>

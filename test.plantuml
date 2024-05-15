@@ -1,0 +1,19 @@
+@startuml
+interface SelectElement {
+    {static} ObjectType type
+    +{abstract} void openEditView()
+    +{abstract} void comeIntoView()
+}
+
+SelectElement <|.. TableSelectElement
+class TableSelectElement {
+    {static} ObjectType type
+    void comeIntoView()
+}
+
+SelectElement <|.. AreaSelectElement
+class AreaSelectElement {
+    {static} ObjectType type
+    void comeIntoView()
+}
+@enduml

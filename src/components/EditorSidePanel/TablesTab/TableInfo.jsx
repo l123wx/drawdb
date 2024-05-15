@@ -1,4 +1,5 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import _ from 'lodash-es'
 import {
   Collapse,
   Row,
@@ -17,7 +18,7 @@ import ColorPalette from "../../ColorPalette";
 import TableField from "./TableField";
 import IndexDetails from "./IndexDetails";
 
-export default function TableInfo({ data }) {
+const TableInfo = React.memo(({data}) => {
   const [indexActiveKey, setIndexActiveKey] = useState("");
   const { deleteTable, updateTable, updateField, setRelationships } =
     useTables();
@@ -337,4 +338,13 @@ export default function TableInfo({ data }) {
       </Row>
     </div>
   );
-}
+}, (prevPros, nextPros) => {
+  delete prevPros.x
+  delete prevPros.y
+  delete nextPros.x
+  delete nextPros.y
+  return !_.isEqual(prevPros, nextPros)
+})
+
+TableInfo.displayName = 'TableInfo';
+export default TableInfo

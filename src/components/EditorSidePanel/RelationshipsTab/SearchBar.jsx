@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { useSelect, useTables } from "../../../hooks";
 import { AutoComplete } from "@douyinfe/semi-ui";
 import { IconSearch } from "@douyinfe/semi-icons";
+import { useCanvasElement, useTables } from "../../../hooks";
 import { ObjectType } from "../../../data/constants";
 
 export default function SearchBar() {
   const { relationships } = useTables();
   const [searchText, setSearchText] = useState("");
-  const { setSelectedElement } = useSelect();
+  const { setSelectedElement } = useCanvasElement();
   const [filteredResult, setFilteredResult] = useState(
     relationships.map((t) => t.name),
   );

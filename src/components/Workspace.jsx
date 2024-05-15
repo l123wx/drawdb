@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { nanoid } from 'nanoid'
 import ControlPanel from "./EditorHeader/ControlPanel";
 import Canvas from "./EditorCanvas/Canvas";
 import SidePanel from "./EditorSidePanel/SidePanel";
@@ -26,13 +27,13 @@ export default function WorkSpace() {
   const [lastSaved, setLastSaved] = useState("");
   const { layout } = useLayout();
   const { settings } = useSettings();
-  const { types, setTypes } = useTypes();
-  const { areas, setAreas } = useAreas();
-  const { tasks, setTasks } = useTasks();
-  const { notes, setNotes } = useNotes();
+  const { types, setTypes: _setTypes } = useTypes();
+  const { areas, setAreas: _setAreas } = useAreas();
+  const { tasks, setTasks: _setTasks } = useTasks();
+  const { notes, setNotes: _setNotes } = useNotes();
   const { saveState, setSaveState } = useSaveState();
   const { transform, setTransform } = useTransform();
-  const { tables, relationships, setTables, setRelationships } = useTables();
+  const { tables, relationships, setTables: _setTables, setRelationships: _setRelationships } = useTables();
   const { undoStack, redoStack, setUndoStack, setRedoStack } = useUndoRedo();
 
   const handleResize = (e) => {
@@ -124,6 +125,21 @@ export default function WorkSpace() {
   ]);
 
   const load = useCallback(async () => {
+    // 为了兼容之前的 index id，如果发现是indexid，则重新生成唯一uuid
+    const transformId = (list) => list.map(item => {
+      return {
+        ...item,
+        id: typeof item.id === 'number' > 1 ? item.id : nanoid()
+      }
+    })
+
+    const setTypes = list => _setTypes(transformId(list))
+    const setAreas = list => _setAreas(transformId(list))
+    const setTasks = list => _setTasks(transformId(list))
+    const setNotes = list => _setNotes(transformId(list))
+    const setTables = list => _setTables(transformId(list))
+    const setRelationships = list => _setRelationships(transformId(list))
+
     const loadLatestDiagram = async () => {
       await db.diagrams
         .orderBy("lastModified")
@@ -227,12 +243,12 @@ export default function WorkSpace() {
     setTransform,
     setRedoStack,
     setUndoStack,
-    setRelationships,
-    setTables,
-    setAreas,
-    setNotes,
-    setTypes,
-    setTasks,
+    _setRelationships,
+    _setTables,
+    _setAreas,
+    _setNotes,
+    _setTypes,
+    _setTasks,
   ]);
 
   useEffect(() => {

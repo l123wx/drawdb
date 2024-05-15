@@ -34,7 +34,6 @@ import {
 import {
   ObjectType,
   Action,
-  Tab,
   State,
   MODAL,
   SIDESHEET,
@@ -50,7 +49,7 @@ import {
   useTransform,
   useTables,
   useUndoRedo,
-  useSelect,
+  useCanvasElement,
 } from "../../hooks";
 import { enterFullscreen } from "../../utils/fullscreen";
 import { dataURItoBlob } from "../../utils/utils";
@@ -98,7 +97,7 @@ export default function ControlPanel({
   const { notes, setNotes, updateNote, addNote, deleteNote } = useNotes();
   const { areas, setAreas, updateArea, addArea, deleteArea } = useAreas();
   const { undoStack, redoStack, setUndoStack, setRedoStack } = useUndoRedo();
-  const { selectedElement, setSelectedElement } = useSelect();
+  const { selectedElement } = useCanvasElement();
   const { transform, setTransform } = useTransform();
   const navigate = useNavigate();
 
@@ -503,131 +502,19 @@ export default function ControlPanel({
     }));
   };
   const edit = () => {
-    if (selectedElement.element === ObjectType.TABLE) {
-      if (!layout.sidebar) {
-        setSelectedElement((prev) => ({
-          ...prev,
-          open: true,
-        }));
-      } else {
-        setSelectedElement((prev) => ({
-          ...prev,
-          open: true,
-          currentTab: Tab.TABLES,
-        }));
-        if (selectedElement.currentTab !== Tab.TABLES) return;
-        document
-          .getElementById(`scroll_table_${selectedElement.id}`)
-          .scrollIntoView({ behavior: "smooth" });
-      }
-    } else if (selectedElement.element === ObjectType.AREA) {
-      if (layout.sidebar) {
-        setSelectedElement((prev) => ({
-          ...prev,
-          currentTab: Tab.AREAS,
-        }));
-        if (selectedElement.currentTab !== Tab.AREAS) return;
-        document
-          .getElementById(`scroll_area_${selectedElement.id}`)
-          .scrollIntoView({ behavior: "smooth" });
-      } else {
-        setSelectedElement((prev) => ({
-          ...prev,
-          open: true,
-          editFromToolbar: true,
-        }));
-      }
-    } else if (selectedElement.element === ObjectType.NOTE) {
-      if (layout.sidebar) {
-        setSelectedElement((prev) => ({
-          ...prev,
-          currentTab: Tab.NOTES,
-          open: false,
-        }));
-        if (selectedElement.currentTab !== Tab.NOTES) return;
-        document
-          .getElementById(`scroll_note_${selectedElement.id}`)
-          .scrollIntoView({ behavior: "smooth" });
-      } else {
-        setSelectedElement((prev) => ({
-          ...prev,
-          open: true,
-          editFromToolbar: true,
-        }));
-      }
-    }
+    selectedElement.openEditor()
+    selectedElement.comeIntoView()
   };
   const del = () => {
-    switch (selectedElement.element) {
-      case ObjectType.TABLE:
-        deleteTable(selectedElement.id);
-        break;
-      case ObjectType.NOTE:
-        deleteNote(selectedElement.id);
-        break;
-      case ObjectType.AREA:
-        deleteArea(selectedElement.id);
-        break;
-      default:
-        break;
-    }
+    selectedElement.delete()
   };
   const duplicate = () => {
-    switch (selectedElement.element) {
-      case ObjectType.TABLE:
-        addTable({
-          ...tables[selectedElement.id],
-          x: tables[selectedElement.id].x + 20,
-          y: tables[selectedElement.id].y + 20,
-          id: tables.length,
-        });
-        break;
-      case ObjectType.NOTE:
-        addNote({
-          ...notes[selectedElement.id],
-          x: notes[selectedElement.id].x + 20,
-          y: notes[selectedElement.id].y + 20,
-          id: notes.length,
-        });
-        break;
-      case ObjectType.AREA:
-        addArea({
-          ...areas[selectedElement.id],
-          x: areas[selectedElement.id].x + 20,
-          y: areas[selectedElement.id].y + 20,
-          id: areas.length,
-        });
-        break;
-      default:
-        break;
-    }
+    selectedElement.duplicate()
   };
   const copy = () => {
-    switch (selectedElement.element) {
-      case ObjectType.TABLE:
-        navigator.clipboard
-          .writeText(JSON.stringify({ ...tables[selectedElement.id] }))
-          .catch(() => {
-            Toast.error("Could not copy");
-          });
-        break;
-      case ObjectType.NOTE:
-        navigator.clipboard
-          .writeText(JSON.stringify({ ...notes[selectedElement.id] }))
-          .catch(() => {
-            Toast.error("Could not copy");
-          });
-        break;
-      case ObjectType.AREA:
-        navigator.clipboard
-          .writeText(JSON.stringify({ ...areas[selectedElement.id] }))
-          .catch(() => {
-            Toast.error("Could not copy");
-          });
-        break;
-      default:
-        break;
-    }
+    selectedElement.copy().catch(() => {
+      Toast.error("Could not copy");
+    });
   };
   const paste = () => {
     navigator.clipboard.readText().then((text) => {
@@ -643,21 +530,18 @@ export default function ControlPanel({
           ...obj,
           x: obj.x + 20,
           y: obj.y + 20,
-          id: tables.length,
         });
       } else if (v.validate(obj, areaSchema).valid) {
         addArea({
           ...obj,
           x: obj.x + 20,
           y: obj.y + 20,
-          id: areas.length,
         });
-      } else if (v.validate(obj, noteSchema)) {
+      } else if (v.validate(obj, noteSchema).valid) {
         addNote({
           ...obj,
           x: obj.x + 20,
           y: obj.y + 20,
-          id: notes.length,
         });
       }
     });
@@ -669,6 +553,39 @@ export default function ControlPanel({
   const save = () => setSaveState(State.SAVING);
   const open = () => setModal(MODAL.OPEN);
   const saveDiagramAs = () => setModal(MODAL.SAVEAS);
+
+  const saveAsTemplate = () => {
+    db.templates
+    .add({
+      title: title,
+      tables: tables,
+      relationships: relationships,
+      types: types,
+      notes: notes,
+      subjectAreas: areas,
+      custom: 1,
+    })
+    .then(() => {
+      Toast.success("Template saved!");
+    });
+  }
+
+  const deleteDiagram = async () => {
+    await db.diagrams
+      .delete(diagramId)
+      .then(() => {
+        setDiagramId(0);
+        setTitle("Untitled diagram");
+        setTables([]);
+        setRelationships([]);
+        setAreas([]);
+        setNotes([]);
+        setTypes([]);
+        setUndoStack([]);
+        setRedoStack([]);
+      })
+      .catch(() => Toast.error("Oops! Something went wrong."));
+  }
 
   const menu = {
     File: {
@@ -694,21 +611,7 @@ export default function ControlPanel({
         shortcut: "Ctrl+Shift+S",
       },
       "Save as template": {
-        function: () => {
-          db.templates
-            .add({
-              title: title,
-              tables: tables,
-              relationships: relationships,
-              types: types,
-              notes: notes,
-              subjectAreas: areas,
-              custom: 1,
-            })
-            .then(() => {
-              Toast.success("Template saved!");
-            });
-        },
+        function: saveAsTemplate
       },
       Rename: {
         function: () => {
@@ -722,22 +625,7 @@ export default function ControlPanel({
           message:
             "Are you sure you want to delete this diagram? This operation is irreversible.",
         },
-        function: async () => {
-          await db.diagrams
-            .delete(diagramId)
-            .then(() => {
-              setDiagramId(0);
-              setTitle("Untitled diagram");
-              setTables([]);
-              setRelationships([]);
-              setAreas([]);
-              setNotes([]);
-              setTypes([]);
-              setUndoStack([]);
-              setRedoStack([]);
-            })
-            .catch(() => Toast.error("Oops! Something went wrong."));
-        },
+        function: deleteDiagram,
       },
       "Import diagram": {
         function: fileImport,
@@ -981,6 +869,7 @@ export default function ControlPanel({
       Duplicate: {
         function: duplicate,
         shortcut: "Ctrl+D",
+        disabled: !(selectedElement && selectedElement.canDuplicate)
       },
       Delete: {
         function: del,
@@ -1466,6 +1355,7 @@ export default function ControlPanel({
                           return (
                             <Dropdown.Item
                               key={index}
+                              disabled={menu[category][item].disabled}
                               onClick={menu[category][item].function}
                               style={
                                 menu[category][item].shortcut && {

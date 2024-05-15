@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  --semi-color-highlight-bg: rgba(var(--semi-blue-4), 0.5);
+  --semi-color-highlight: rgba(var(--semi-black), 1);
+}
+
+body[theme-mode=dark] {
+  --semi-color-highlight-bg: rgba(var(--semi-blue-2), 0.5);
+  --semi-color-highlight: rgba(var(--semi-white), 1);
+}
+
 .semi-form-vertical .semi-form-field {
   margin: 0;
   padding-top: 8px !important;

@@ -1,14 +1,50 @@
-import { useRef } from "react";
-import { Cardinality, ObjectType, Tab } from "../../data/constants";
+import { useRef, useEffect } from "react";
+import { Cardinality } from "../../data/constants";
 import { calcPath } from "../../utils/calcPath";
-import { useTables, useSettings, useLayout, useSelect } from "../../hooks";
+import { useTables, useSettings, useLayout, useCanvasElement } from "../../hooks";
+import { RelationshipCanvasElement } from "../../utils/CanvasElement";
 
 export default function Relationship({ data }) {
   const { settings } = useSettings();
-  const { tables } = useTables();
+  const { tables, addRelationship, updateRelationship, deleteRelationship } = useTables();
   const { layout } = useLayout();
-  const { selectedElement, setSelectedElement } = useSelect();
+  const { setSelectedElement, addElement, removeElementById } = useCanvasElement();
   const pathRef = useRef();
+
+  const relationshipCanvasElement = new RelationshipCanvasElement({
+    id: data.id,
+    data,
+    openEditor() {
+      console.log('note openEditor')
+      if (layout.sidebar) {
+        return
+      }
+
+    },
+    comeIntoView() {
+      console.log('note comeIntoView')
+    },
+    update(newData) {
+      updateRelationship(data.id, newData)
+    },
+    delete() {
+      deleteRelationship(data.id)
+    },
+    duplicate() {
+      addRelationship({
+        ...data,
+        x: data.x + 20,
+        y: data.y + 20
+      });
+    }
+  })
+
+  useEffect(() => {
+    addElement(relationshipCanvasElement)
+    return () => {
+      removeElementById(relationshipCanvasElement.id)
+    }
+  }, [])
 
   let cardinalityStart = "1";
   let cardinalityEnd = "1";
@@ -50,26 +86,30 @@ export default function Relationship({ data }) {
   }
 
   const edit = () => {
-    if (!layout.sidebar) {
-      setSelectedElement((prev) => ({
-        ...prev,
-        element: ObjectType.RELATIONSHIP,
-        id: data.id,
-        open: true,
-      }));
-    } else {
-      setSelectedElement((prev) => ({
-        ...prev,
-        currentTab: Tab.RELATIONSHIPS,
-        element: ObjectType.RELATIONSHIP,
-        id: data.id,
-        open: true,
-      }));
-      if (selectedElement.currentTab !== Tab.RELATIONSHIPS) return;
-      document
-        .getElementById(`scroll_ref_${data.id}`)
-        .scrollIntoView({ behavior: "smooth" });
-    }
+    setSelectedElement(relationshipCanvasElement)
+    relationshipCanvasElement.openEditor()
+    relationshipCanvasElement.comeIntoView()
+
+    // if (!layout.sidebar) {
+    //   setSelectedElement((prev) => ({
+    //     ...prev,
+    //     element: ObjectType.RELATIONSHIP,
+    //     id: data.id,
+    //     open: true,
+    //   }));
+    // } else {
+    //   setSelectedElement((prev) => ({
+    //     ...prev,
+    //     currentTab: Tab.RELATIONSHIPS,
+    //     element: ObjectType.RELATIONSHIP,
+    //     id: data.id,
+    //     open: true,
+    //   }));
+    //   if (selectedElement.currentTab !== Tab.RELATIONSHIPS) return;
+    //   document
+    //     .getElementById(`scroll_ref_${data.id}`)
+    //     .scrollIntoView({ behavior: "smooth" });
+    // }
   };
 
   return (

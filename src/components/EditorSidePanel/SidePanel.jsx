@@ -1,6 +1,6 @@
 import { Tabs, TabPane } from "@douyinfe/semi-ui";
 import { Tab } from "../../data/constants";
-import { useLayout, useSelect } from "../../hooks";
+import { useLayout, useSidePanel } from "../../hooks";
 import RelationshipsTab from "./RelationshipsTab/RelationshipsTab";
 import TypesTab from "./TypesTab/TypesTab";
 import Issues from "./Issues";
@@ -10,7 +10,7 @@ import TablesTab from "./TablesTab/TablesTab";
 
 export default function SidePanel({ width, resize, setResize }) {
   const { layout } = useLayout();
-  const { selectedElement, setSelectedElement } = useSelect();
+  const { currentTab, setCurrentTab } = useSidePanel();
 
   const tabList = [
     { tab: "Tables", itemKey: Tab.TABLES, component: <TablesTab />  },
@@ -29,11 +29,9 @@ export default function SidePanel({ width, resize, setResize }) {
         <div className="h-full flex-1 overflow-y-auto">
           <Tabs
             type="card"
-            activeKey={selectedElement.currentTab}
+            activeKey={currentTab}
+            onChange={setCurrentTab}
             lazyRender
-            onChange={(key) =>
-              setSelectedElement((prev) => ({ ...prev, currentTab: key }))
-            }
             collapsible
           >
             {tabList.length && tabList.map(tab => 

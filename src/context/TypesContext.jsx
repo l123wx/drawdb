@@ -1,4 +1,5 @@
 import { createContext, useState } from "react";
+import { nanoid } from 'nanoid';
 import { Action, ObjectType } from "../data/constants";
 import useUndoRedo from "../hooks/useUndoRedo";
 
@@ -11,14 +12,18 @@ export default function TypesContextProvider({ children }) {
   const addType = (data, addToHistory = true) => {
     if (data) {
       setTypes((prev) => {
+        data.id = nanoid()
+        data.key = Date.now()
+
         const temp = prev.slice();
-        temp.splice(data.id, 0, data);
+        temp.splice(data.index ?? temp.length, 0, data);
         return temp;
       });
     } else {
       setTypes((prev) => [
         ...prev,
         {
+          id: nanoid(),
           name: `type_${prev.length}`,
           fields: [],
           comment: "",

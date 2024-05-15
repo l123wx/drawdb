@@ -1,29 +1,31 @@
 import { createContext, useState } from "react";
+import { nanoid } from 'nanoid'
 import { Action, ObjectType, defaultBlue } from "../data/constants";
-import useUndoRedo from "../hooks/useUndoRedo";
-import useTransform from "../hooks/useTransform";
-import useSelect from "../hooks/useSelect";
+import { useUndoRedo, useTransform, useCanvasElement } from "../hooks";
 
 export const AreasContext = createContext(null);
 
 export default function AreasContextProvider({ children }) {
   const [areas, setAreas] = useState([]);
   const { transform } = useTransform();
-  const { selectedElement, setSelectedElement } = useSelect();
+  const { setSelectedElement, isElementSelected } = useCanvasElement();
   const { setUndoStack, setRedoStack } = useUndoRedo();
 
   const addArea = (data, addToHistory = true) => {
     if (data) {
       setAreas((prev) => {
+        data.id = nanoid()
+        data.key = Date.now()
+
         const temp = prev.slice();
-        temp.splice(data.id, 0, data);
-        return temp.map((t, i) => ({ ...t, id: i }));
+        temp.splice(data.index ?? temp.length, 0, data);
+        return temp
       });
     } else {
       setAreas((prev) => [
         ...prev,
         {
-          id: prev.length,
+          id: nanoid(),
           name: `area_${prev.length}`,
           x: -transform.pan.x,
           y: -transform.pan.y,
@@ -62,13 +64,8 @@ export default function AreasContextProvider({ children }) {
     setAreas((prev) =>
       prev.filter((e) => e.id !== id).map((e, i) => ({ ...e, id: i }))
     );
-    if (id === selectedElement.id) {
-      setSelectedElement((prev) => ({
-        ...prev,
-        element: ObjectType.NONE,
-        id: -1,
-        open: false,
-      }));
+    if (isElementSelected(id)) {
+      setSelectedElement(null);
     }
   };
 

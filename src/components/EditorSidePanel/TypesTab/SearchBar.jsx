@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { AutoComplete } from "@douyinfe/semi-ui";
 import { IconSearch } from "@douyinfe/semi-icons";
-import { useSelect, useTypes } from "../../../hooks";
+import { useCanvasElement, useTypes } from "../../../hooks";
 import { ObjectType } from "../../../data/constants";
 
 export default function Searchbar() {
   const { types } = useTypes();
   const [value, setValue] = useState("");
-  const { setSelectedElement } = useSelect();
+  const { setSelectedElement } = useCanvasElement();
 
   const [filteredResult, setFilteredResult] = useState(
     types.map((t) => t.name),

@@ -27,6 +27,8 @@
     "jsonschema": "^1.4.1",
     "jspdf": "^2.5.1",
     "lexical": "^0.12.5",
+    "lodash-es": "^4.17.21",
+    "nanoid": "^5.0.7",
     "node-sql-parser": "^5.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

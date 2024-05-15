@@ -1,14 +1,15 @@
+import { useState } from 'react'
 import { Collapse, Row, Col, Button } from "@douyinfe/semi-ui";
 import { IconPlus } from "@douyinfe/semi-icons";
-import { useSelect, useTables } from "../../../hooks";
-import { ObjectType } from "../../../data/constants";
+import { useCanvasElement, useTables } from "../../../hooks";
 import SearchBar from "./SearchBar";
 import Empty from "../Empty";
 import TableInfo from "./TableInfo";
 
 export default function TablesTab() {
   const { tables, addTable } = useTables();
-  const { selectedElement, setSelectedElement } = useSelect();
+  const { setSelectedElementById, setSelectedElement } = useCanvasElement();
+  const [collapseActiveKeys, setCollapseActiveKeys] = useState([])
 
   return (
     <>
@@ -26,21 +27,13 @@ export default function TablesTab() {
         <Empty title="No tables" text="Start building your diagram!" />
       ) : (
         <Collapse
-          activeKey={
-            selectedElement.open && selectedElement.element === ObjectType.TABLE
-              ? `${selectedElement.id}`
-              : ""
-          }
+          activeKey={collapseActiveKeys}
           keepDOM
           lazyRender
-          onChange={(k) =>
-            setSelectedElement((prev) => ({
-              ...prev,
-              open: true,
-              id: parseInt(k),
-              element: ObjectType.TABLE,
-            }))
-          }
+          onChange={(activeKeys) => {
+            setCollapseActiveKeys(activeKeys)
+            activeKeys[0] ? setSelectedElementById(activeKeys[0]) : setSelectedElement(null)
+          }}
           accordion
         >
           {tables.map((t) => (
@@ -53,7 +46,9 @@ export default function TablesTab() {
                 }
                 itemKey={`${t.id}`}
               >
-                <TableInfo data={t} />
+                { console.time(123) }
+                  <TableInfo data={t} />
+                { console.timeEnd(123) }
               </Collapse.Panel>
             </div>
           ))}
